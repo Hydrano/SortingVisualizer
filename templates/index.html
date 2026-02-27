@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorting Algorithm Visualizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">Sorting Visualizer</h1>
+            <p class="subtitle">Watch how different sorting algorithms organize data</p>
+        </header>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="algorithm-select">Algorithm</label>
+                <select id="algorithm-select">
+                    {% for algo in algorithms %}
+                    <option value="{{ algo.id }}"
+                            data-time-avg="{{ algo.time_avg }}"
+                            data-time-worst="{{ algo.time_worst }}"
+                            data-space="{{ algo.space }}"
+                            data-description="{{ algo.description }}"
+                            {% if algo.id == 'quick' %}selected{% endif %}>
+                        {{ algo.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="size-slider">Bars: <span id="size-value">20</span></label>
+                <input type="range" id="size-slider" min="5" max="100" value="20" step="1">
+            </div>
+
+            <div class="control-group">
+                <label for="speed-slider">Speed: <span id="speed-value">50</span></label>
+                <input type="range" id="speed-slider" min="1" max="100" value="50" step="1">
+            </div>
+
+            <div class="control-group audio-controls">
+                <label>Sound</label>
+                <div class="audio-row">
+                    <button id="btn-mute" class="btn btn-icon" title="Toggle sound">
+                        <svg id="icon-unmuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M15.54 8.46a5 5 0 010 7.07"/>
+                            <path d="M19.07 4.93a10 10 0 010 14.14"/>
+                        </svg>
+                        <svg id="icon-muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <line x1="23" y1="9" x2="17" y2="15"/>
+                            <line x1="17" y1="9" x2="23" y2="15"/>
+                        </svg>
+                    </button>
+                    <input type="range" id="volume-slider" min="0" max="100" value="30" step="1" title="Volume">
+                </div>
+            </div>
+
+            <div class="control-buttons">
+                <button id="btn-generate" class="btn btn-secondary" title="Generate new array">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                    </svg>
+                    Shuffle
+                </button>
+                <button id="btn-start" class="btn btn-primary" title="Start sorting">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    Sort
+                </button>
+                <button id="btn-stop" class="btn btn-danger" title="Stop sorting" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                    </svg>
+                    Stop
+                </button>
+            </div>
+        </div>
+
+        <!-- Algorithm Info Card -->
+        <div class="algo-info">
+            <div class="algo-info-header">
+                <h2 id="algo-name">Quick Sort</h2>
+                <div class="complexity-badges">
+                    <span class="badge badge-time">Time: <strong id="algo-time-avg">O(n log n)</strong></span>
+                    <span class="badge badge-worst">Worst: <strong id="algo-time-worst">O(n²)</strong></span>
+                    <span class="badge badge-space">Space: <strong id="algo-space">O(log n)</strong></span>
+                </div>
+            </div>
+            <p id="algo-description" class="algo-description">Picks a 'pivot' and partitions the array: elements smaller than pivot go left, larger go right.</p>
+        </div>
+
+        <!-- Visualization Area -->
+        <div class="visualizer-container">
+            <div id="bars-container" class="bars-container"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">Comparisons</span>
+                <span class="stat-value" id="stat-comparisons">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Swaps</span>
+                <span class="stat-value" id="stat-swaps">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Array Accesses</span>
+                <span class="stat-value" id="stat-accesses">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Time</span>
+                <span class="stat-value" id="stat-time">0.00s</span>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item"><span class="legend-color" style="background: var(--bar-default)"></span> Unsorted</div>
+            <div class="legend-item"><span class="legend-color" style="background: var(--bar-comparing)"></span> Comparing</div>
+            <div class="legend-item"><span class="legend-color" style="background: var(--bar-swapping)"></span> Swapping</div>
+            <div class="legend-item"><span class="legend-color" style="background: var(--bar-pivot)"></span> Pivot</div>
+            <div class="legend-item"><span class="legend-color" style="background: var(--bar-sorted)"></span> Sorted</div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/visualizer.js') }}"></script>
+</body>
+</html>
