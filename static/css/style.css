@@ -346,14 +346,26 @@ input[type="range"]::-moz-range-thumb {
     position: relative;
 }
 
-.bar {
+/* Wrapper column: owns the flex sizing, label sits here (outside transform) */
+.bar-col {
     flex: 1;
     min-width: 2px;
     max-width: 60px;
+    height: 100%;
+    position: relative;
+}
+
+/* Visual bar: GPU-composited via transform: scaleY() — no reflow on update */
+.bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
     border-radius: 3px 3px 0 0;
     background: var(--bar-default);
-    transition: height 0.05s ease;
-    position: relative;
+    transform-origin: bottom center;
+    will-change: transform;
 }
 
 .bar.comparing {
@@ -380,10 +392,10 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 
-/* Show value label on bars when there are few enough */
-.bar .bar-value {
+/* Value label – sits in .bar-col (outside .bar's scaleY transform) */
+.bar-col .bar-value {
     position: absolute;
-    top: -20px;
+    /* bottom is set dynamically via JS to track the bar's visual top */
     left: 50%;
     transform: translateX(-50%);
     font-size: 0.65rem;
@@ -391,6 +403,7 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text-secondary);
     white-space: nowrap;
     pointer-events: none;
+    z-index: 1;
 }
 
 /* ===== Stats ===== */

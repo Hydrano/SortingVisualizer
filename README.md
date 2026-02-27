@@ -11,11 +11,14 @@ An interactive web-based tool that visualizes how different sorting algorithms w
 ## ✨ Features
 
 - **22 Sorting Algorithms** — From classic Bubble Sort to exotic Bogo Sort
+- **GPU-Accelerated Rendering** — Bars use CSS `transform: scaleY()` instead of `height` (no reflow)
 - **Real-time Animation** — Bars visually rearrange as the algorithm runs
-- **Sound Effects** — Each comparison and swap plays a tone (pitch = bar height)
-- **Live Statistics** — Comparisons, swaps, array accesses, and elapsed time
+- **Sound Effects** — Oscillator pool with throttling (max 20 tones/sec, no GC pressure)
+- **Live Statistics** — Comparisons, swaps, array accesses, and elapsed time (`requestAnimationFrame`-synced)
 - **Adjustable Controls** — Change array size (5–100), animation speed, and volume
 - **Color-coded States** — Yellow (comparing), Red (swapping), Orange (pivot), Green (sorted)
+- **ES Module Architecture** — Clean split: `state.js`, `audio.js`, `ui.js`, `algorithms.js`, `main.js`
+- **AbortController** — Native cancellation via `AbortController` + rejecting `sleep()` — no manual stop-flag polling
 - **Dark Theme** — Easy on the eyes, inspired by YouTube Shorts visualizations
 
 ---
@@ -62,8 +65,13 @@ Simply visit the live demo: **[hydrano.github.io/SortingVisualizer](https://hydr
    cd SortingVisualizer
    ```
 
-2. **Open directly in browser**  
-   Just open `index.html` in any modern browser — no server required!
+2. **Serve via any HTTP server** (required for ES modules)
+   ```bash
+   python -m http.server 8080
+   ```
+   Then open `http://localhost:8080`
+
+   > **Note:** Opening `index.html` as a `file://` URL will not work because browsers block ES module imports from the local filesystem. Any HTTP server works.
 
 3. **Or run with Flask** (optional, for development)
    ```bash
@@ -102,10 +110,25 @@ Simply visit the live demo: **[hydrano.github.io/SortingVisualizer](https://hydr
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** Vanilla HTML, CSS, JavaScript
-- **Audio:** Web Audio API (procedural sine wave generation)
+- **Frontend:** Vanilla HTML, CSS, JavaScript (ES Modules)
+- **Architecture:** `state.js` → `audio.js` → `ui.js` → `algorithms.js` → `main.js`
+- **Rendering:** CSS `transform: scaleY()` — GPU-composited, zero layout reflow
+- **Audio:** Web Audio API — fixed oscillator pool (4 voices, round-robin) with 20 Hz throttle
+- **Cancellation:** `AbortController` + rejecting `sleep()` — single `try/catch` in entry point
+- **Timer:** `requestAnimationFrame` — synced to monitor refresh rate
 - **Backend:** Flask (optional, for local development)
 - **Hosting:** GitHub Pages
+
+---
+
+## ⚠️ Algorithm Notes
+
+| Algorithm | Note |
+|-----------|------|
+| **Bogo Sort** | Auto-capped at 8 elements to prevent browser freeze |
+| **Sleep Sort** | Timer IDs are tracked and cleared on abort (no memory leaks) |
+| **Stooge Sort** | O(n^2.71) — extremely slow for large arrays, use ≤ 15 elements |
+| **Bitonic Sort** | Array is padded to the next power of 2 with dim sentinel bars |
 
 ---
 
