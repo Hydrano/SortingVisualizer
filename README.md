@@ -4,13 +4,13 @@ An interactive web-based tool that visualizes how different sorting algorithms w
 
 **🔗 Live Demo:** [https://hydrano.github.io/SortingVisualizer/](https://hydrano.github.io/SortingVisualizer/)
 
-![Sorting Visualizer](https://img.shields.io/badge/Algorithms-16-blue) ![License](https://img.shields.io/badge/License-MIT-green)
+![Sorting Visualizer](https://img.shields.io/badge/Algorithms-22-blue) ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
 
 ## ✨ Features
 
-- **16 Sorting Algorithms** — From classic Bubble Sort to exotic Bitonic Sort
+- **22 Sorting Algorithms** — From classic Bubble Sort to exotic Bogo Sort
 - **Real-time Animation** — Bars visually rearrange as the algorithm runs
 - **Sound Effects** — Each comparison and swap plays a tone (pitch = bar height)
 - **Live Statistics** — Comparisons, swaps, array accesses, and elapsed time
@@ -39,6 +39,13 @@ An interactive web-based tool that visualizes how different sorting algorithms w
 | Cycle Sort | O(n²) | O(n²) | O(1) |
 | Radix Sort (LSD) | O(nk) | O(nk) | O(n+k) |
 | Bitonic Sort | O(n log² n) | O(n log² n) | O(1) |
+| Timsort | O(n log n) | O(n log n) | O(n) |
+| IntroSort | O(n log n) | O(n log n) | O(log n) |
+| Flashsort | O(n) | O(n²) | O(n) |
+| Library Sort | O(n log n) | O(n²) | O(n) |
+| Stooge Sort | O(n^2.71) | O(n^2.71) | O(log n) |
+| Bogo Sort | O((n+1)!) | O(∞) | O(1) |
+| Sleep Sort | O(n + max) | O(n + max) | O(n) |
 
 ---
 

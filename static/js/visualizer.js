@@ -1215,6 +1215,650 @@
         await bitonicMerge(low + half, half, ascending);
     }
 
+    // ---------- Timsort ----------
+    // Simplified Timsort: find natural runs, extend them with insertion sort
+    // to a minimum run length, then merge pairs bottom-up.
+
+    async function timSort() {
+        const n = array.length;
+        const MIN_RUN = Math.max(4, Math.min(32, n >> 1));
+
+        // Insertion sort a subarray [left..right]
+        async function timInsertionSort(left, right) {
+            for (let i = left + 1; i <= right; i++) {
+                if (stopFlag) return;
+                const key = array[i];
+                accesses++;
+                barElements[i].classList.add("active");
+                let j = i - 1;
+
+                while (j >= left && array[j] > key) {
+                    if (stopFlag) return;
+                    barElements[j].classList.add("comparing");
+                    comparisons++;
+                    accesses += 2;
+                    soundSwap(j);
+                    await sleep(getDelay());
+                    array[j + 1] = array[j];
+                    accesses += 2;
+                    swaps++;
+                    updateBar(j + 1);
+                    barElements[j].classList.remove("comparing");
+                    j--;
+                    updateStats();
+                }
+                array[j + 1] = key;
+                accesses++;
+                updateBar(j + 1);
+                barElements[i].classList.remove("active");
+            }
+        }
+
+        // Merge two sorted runs [left..mid] and [mid+1..right]
+        async function timMerge(left, mid, right) {
+            const leftArr = array.slice(left, mid + 1);
+            const rightArr = array.slice(mid + 1, right + 1);
+            accesses += right - left + 1;
+            let i = 0, j = 0, k = left;
+
+            for (let x = left; x <= right; x++) barElements[x].classList.add("active");
+            await sleep(getDelay());
+
+            while (i < leftArr.length && j < rightArr.length && !stopFlag) {
+                comparisons++;
+                accesses += 2;
+                barElements[k].classList.add("comparing");
+                soundSwap(k);
+                await sleep(getDelay());
+
+                if (leftArr[i] <= rightArr[j]) {
+                    array[k] = leftArr[i++];
+                } else {
+                    array[k] = rightArr[j++];
+                    swaps++;
+                }
+                accesses++;
+                updateBar(k);
+                barElements[k].classList.remove("comparing", "active");
+                updateStats();
+                k++;
+            }
+
+            while (i < leftArr.length && !stopFlag) {
+                array[k] = leftArr[i++];
+                accesses++;
+                updateBar(k);
+                soundSwap(k);
+                barElements[k].classList.remove("active");
+                k++;
+                await sleep(getDelay());
+            }
+            while (j < rightArr.length && !stopFlag) {
+                array[k] = rightArr[j++];
+                accesses++;
+                updateBar(k);
+                soundSwap(k);
+                barElements[k].classList.remove("active");
+                k++;
+                await sleep(getDelay());
+            }
+            for (let x = left; x <= right; x++) barElements[x].classList.remove("active");
+        }
+
+        // Step 1: Sort individual runs with insertion sort
+        for (let start = 0; start < n; start += MIN_RUN) {
+            if (stopFlag) return;
+            const end = Math.min(start + MIN_RUN - 1, n - 1);
+            await timInsertionSort(start, end);
+        }
+
+        // Step 2: Merge runs, doubling size each pass
+        for (let size = MIN_RUN; size < n; size *= 2) {
+            for (let left = 0; left < n; left += 2 * size) {
+                if (stopFlag) return;
+                const mid = Math.min(left + size - 1, n - 1);
+                const right = Math.min(left + 2 * size - 1, n - 1);
+                if (mid < right) {
+                    await timMerge(left, mid, right);
+                }
+            }
+        }
+    }
+
+    // ---------- IntroSort ----------
+    // Quick Sort + Heap Sort fallback + Insertion Sort for small partitions.
+
+    async function introSort() {
+        const n = array.length;
+        const maxDepth = Math.floor(2 * Math.log2(n));
+        await introSortRec(0, n - 1, maxDepth);
+    }
+
+    async function introSortRec(low, high, depthLimit) {
+        if (stopFlag) return;
+        const size = high - low + 1;
+
+        // Small partitions: insertion sort
+        if (size <= 16) {
+            await introInsertionSort(low, high);
+            return;
+        }
+
+        // Depth exceeded: switch to heap sort on this sub-range
+        if (depthLimit === 0) {
+            await introHeapSort(low, high);
+            return;
+        }
+
+        // Quick sort partition
+        const pivot = await introPartition(low, high);
+        if (stopFlag) return;
+        await introSortRec(low, pivot - 1, depthLimit - 1);
+        await introSortRec(pivot + 1, high, depthLimit - 1);
+    }
+
+    async function introPartition(low, high) {
+        // Median-of-three pivot
+        const mid = Math.floor((low + high) / 2);
+        if (array[low] > array[mid]) { [array[low], array[mid]] = [array[mid], array[low]]; updateBar(low); updateBar(mid); swaps++; accesses += 4; }
+        if (array[low] > array[high]) { [array[low], array[high]] = [array[high], array[low]]; updateBar(low); updateBar(high); swaps++; accesses += 4; }
+        if (array[mid] > array[high]) { [array[mid], array[high]] = [array[high], array[mid]]; updateBar(mid); updateBar(high); swaps++; accesses += 4; }
+        // Place median at high-1 as pivot
+        [array[mid], array[high]] = [array[high], array[mid]];
+        updateBar(mid); updateBar(high); swaps++; accesses += 4;
+
+        const pivotVal = array[high];
+        barElements[high].classList.add("pivot");
+        let i = low - 1;
+
+        for (let j = low; j < high; j++) {
+            if (stopFlag) return -1;
+            barElements[j].classList.add("comparing");
+            comparisons++;
+            accesses++;
+            soundSwap(j);
+            updateStats();
+            await sleep(getDelay());
+
+            if (array[j] < pivotVal) {
+                i++;
+                if (i !== j) {
+                    barElements[i].classList.add("swapping");
+                    barElements[j].classList.add("swapping");
+                    [array[i], array[j]] = [array[j], array[i]];
+                    swaps++; accesses += 4;
+                    updateBar(i); updateBar(j);
+                    soundSwap(i);
+                    updateStats();
+                    await sleep(getDelay());
+                    barElements[i].classList.remove("swapping");
+                }
+                barElements[j].classList.remove("swapping");
+            }
+            barElements[j].classList.remove("comparing");
+        }
+        i++;
+        if (i !== high) {
+            barElements[i].classList.add("swapping");
+            [array[i], array[high]] = [array[high], array[i]];
+            swaps++; accesses += 4;
+            updateBar(i); updateBar(high);
+            soundSwap(i);
+            updateStats();
+            await sleep(getDelay());
+            barElements[i].classList.remove("swapping");
+        }
+        barElements[high].classList.remove("pivot");
+        barElements[i].classList.add("sorted");
+        return i;
+    }
+
+    async function introInsertionSort(low, high) {
+        for (let i = low + 1; i <= high; i++) {
+            if (stopFlag) return;
+            const key = array[i];
+            accesses++;
+            barElements[i].classList.add("active");
+            let j = i - 1;
+            while (j >= low && array[j] > key) {
+                if (stopFlag) return;
+                comparisons++; accesses += 2;
+                barElements[j].classList.add("comparing");
+                soundSwap(j);
+                await sleep(getDelay());
+                array[j + 1] = array[j];
+                swaps++; accesses += 2;
+                updateBar(j + 1);
+                barElements[j].classList.remove("comparing");
+                j--;
+                updateStats();
+            }
+            array[j + 1] = key;
+            accesses++;
+            updateBar(j + 1);
+            barElements[i].classList.remove("active");
+        }
+    }
+
+    async function introHeapSort(low, high) {
+        const n = high - low + 1;
+
+        async function siftDown(size, root) {
+            let largest = root;
+            const l = 2 * (root - low) + 1 + low;
+            const r = l + 1;
+            if (l <= low + size - 1) {
+                comparisons++; accesses += 2;
+                barElements[l].classList.add("comparing");
+                soundSwap(l);
+                await sleep(getDelay());
+                if (array[l] > array[largest]) largest = l;
+                barElements[l].classList.remove("comparing");
+            }
+            if (r <= low + size - 1) {
+                comparisons++; accesses += 2;
+                barElements[r].classList.add("comparing");
+                soundSwap(r);
+                await sleep(getDelay());
+                if (array[r] > array[largest]) largest = r;
+                barElements[r].classList.remove("comparing");
+            }
+            updateStats();
+            if (largest !== root && !stopFlag) {
+                barElements[root].classList.add("swapping");
+                barElements[largest].classList.add("swapping");
+                [array[root], array[largest]] = [array[largest], array[root]];
+                swaps++; accesses += 4;
+                updateBar(root); updateBar(largest);
+                soundSwap(root);
+                updateStats();
+                await sleep(getDelay());
+                barElements[root].classList.remove("swapping");
+                barElements[largest].classList.remove("swapping");
+                await siftDown(size, largest);
+            }
+        }
+
+        // Build max heap
+        for (let i = low + Math.floor(n / 2) - 1; i >= low; i--) {
+            if (stopFlag) return;
+            await siftDown(n, i);
+        }
+        // Extract
+        for (let i = high; i > low; i--) {
+            if (stopFlag) return;
+            barElements[low].classList.add("swapping");
+            barElements[i].classList.add("swapping");
+            [array[low], array[i]] = [array[i], array[low]];
+            swaps++; accesses += 4;
+            updateBar(low); updateBar(i);
+            soundSwap(low);
+            updateStats();
+            await sleep(getDelay());
+            barElements[low].classList.remove("swapping");
+            barElements[i].classList.remove("swapping");
+            barElements[i].classList.add("sorted");
+            await siftDown(i - low, low);
+        }
+        barElements[low].classList.add("sorted");
+    }
+
+    // ---------- Flashsort ----------
+    async function flashSort() {
+        const n = array.length;
+        if (n <= 1) return;
+
+        const m = Math.max(Math.floor(0.45 * n), 2); // number of classes
+        let min = array[0], max = array[0], maxIdx = 0;
+        accesses += 2;
+
+        // Find min and max
+        for (let i = 1; i < n; i++) {
+            if (stopFlag) return;
+            accesses++;
+            barElements[i].classList.add("comparing");
+            soundSwap(i);
+            comparisons++;
+            await sleep(getDelay());
+            if (array[i] < min) min = array[i];
+            if (array[i] > max) { max = array[i]; maxIdx = i; }
+            barElements[i].classList.remove("comparing");
+            updateStats();
+        }
+
+        if (min === max) return; // all equal
+
+        const c1 = (m - 1) / (max - min);
+        const L = new Array(m).fill(0);
+
+        // Distribution counting
+        for (let i = 0; i < n; i++) {
+            const k = Math.floor(c1 * (array[i] - min));
+            L[k]++;
+            accesses++;
+        }
+
+        // Prefix sum
+        for (let k = 1; k < m; k++) L[k] += L[k - 1];
+
+        // Move max to position 0
+        if (maxIdx !== 0) {
+            barElements[0].classList.add("swapping");
+            barElements[maxIdx].classList.add("swapping");
+            [array[0], array[maxIdx]] = [array[maxIdx], array[0]];
+            swaps++; accesses += 4;
+            updateBar(0); updateBar(maxIdx);
+            soundSwap(0);
+            updateStats();
+            await sleep(getDelay());
+            barElements[0].classList.remove("swapping");
+            barElements[maxIdx].classList.remove("swapping");
+        }
+
+        // Permutation cycle
+        let move = 0, j = 0, k = m - 1;
+        let flash;
+        while (move < n - 1 && !stopFlag) {
+            while (j >= L[k] && !stopFlag) {
+                j++;
+                if (j < n) k = Math.floor(c1 * (array[j] - min));
+                else break;
+            }
+            if (j >= n) break;
+            flash = array[j];
+            accesses++;
+            while (j < L[k] && !stopFlag) {
+                k = Math.floor(c1 * (flash - min));
+                const dest = L[k] - 1;
+                barElements[dest].classList.add("swapping");
+                barElements[j].classList.add("active");
+                const temp = array[dest];
+                array[dest] = flash;
+                flash = temp;
+                swaps++; accesses += 3;
+                updateBar(dest);
+                soundSwap(dest);
+                updateStats();
+                await sleep(getDelay());
+                barElements[dest].classList.remove("swapping");
+                barElements[j].classList.remove("active");
+                L[k]--;
+                move++;
+            }
+        }
+
+        // Final pass: insertion sort to fix remaining disorder
+        for (let i = 1; i < n; i++) {
+            if (stopFlag) return;
+            const key = array[i];
+            accesses++;
+            let jj = i - 1;
+            barElements[i].classList.add("active");
+
+            while (jj >= 0 && array[jj] > key) {
+                if (stopFlag) return;
+                comparisons++; accesses += 2;
+                barElements[jj].classList.add("comparing");
+                soundSwap(jj);
+                await sleep(getDelay());
+                array[jj + 1] = array[jj];
+                swaps++; accesses += 2;
+                updateBar(jj + 1);
+                barElements[jj].classList.remove("comparing");
+                jj--;
+                updateStats();
+            }
+            array[jj + 1] = key;
+            accesses++;
+            updateBar(jj + 1);
+            barElements[i].classList.remove("active");
+        }
+    }
+
+    // ---------- Library Sort (Gapped Insertion Sort) ----------
+    async function librarySort() {
+        const n = array.length;
+        const GAP_FACTOR = 2; // internal array is 2× size with gaps
+        const size = n * GAP_FACTOR;
+        const EMPTY = -1;
+        const lib = new Array(size).fill(EMPTY);
+
+        // Insert first element in the middle
+        const mid = Math.floor(size / 2);
+        lib[mid] = array[0];
+        accesses++;
+        barElements[0].classList.add("active");
+        soundSwap(0);
+        await sleep(getDelay());
+        barElements[0].classList.remove("active");
+        let filled = 1;
+
+        for (let i = 1; i < n; i++) {
+            if (stopFlag) return;
+            const val = array[i];
+            accesses++;
+            barElements[i].classList.add("active");
+
+            // Binary search for insert position in lib
+            let lo = 0, hi = size - 1;
+            while (lo <= hi) {
+                const m = Math.floor((lo + hi) / 2);
+                if (lib[m] === EMPTY) {
+                    // Search for nearest filled spot
+                    let left = m, right = m;
+                    while (left >= lo && lib[left] === EMPTY) left--;
+                    while (right <= hi && lib[right] === EMPTY) right++;
+                    if (left >= lo && lib[left] !== EMPTY) {
+                        comparisons++;
+                        if (lib[left] <= val) lo = m + 1;
+                        else hi = m - 1;
+                    } else if (right <= hi && lib[right] !== EMPTY) {
+                        comparisons++;
+                        if (lib[right] <= val) lo = right + 1;
+                        else hi = m - 1;
+                    } else break;
+                } else {
+                    comparisons++;
+                    if (lib[m] <= val) lo = m + 1;
+                    else hi = m - 1;
+                }
+            }
+            updateStats();
+
+            // Find nearest empty slot to 'lo'
+            let pos = lo;
+            if (pos >= size) pos = size - 1;
+            if (lib[pos] !== EMPTY) {
+                let left = pos, right = pos;
+                while (left >= 0 && lib[left] !== EMPTY) left--;
+                while (right < size && lib[right] !== EMPTY) right++;
+                // Shift toward the closer empty side
+                if (left >= 0 && (right >= size || (pos - left) <= (right - pos))) {
+                    for (let s = left; s < pos; s++) { lib[s] = lib[s + 1]; swaps++; }
+                    pos--;
+                } else if (right < size) {
+                    for (let s = right; s > pos; s--) { lib[s] = lib[s - 1]; swaps++; }
+                }
+            }
+            lib[pos] = val;
+            filled++;
+
+            // Visualize: rebuild array from gapped library
+            let idx = 0;
+            for (let g = 0; g < size && idx < n; g++) {
+                if (lib[g] !== EMPTY) {
+                    array[idx] = lib[g];
+                    updateBar(idx);
+                    idx++;
+                }
+            }
+            // Fill remaining positions with 0 temporarily
+            while (idx < n) { array[idx] = 0; updateBar(idx); idx++; }
+
+            soundSwap(Math.min(i, n - 1));
+            updateStats();
+            await sleep(getDelay());
+            barElements[i].classList.remove("active");
+        }
+
+        // Final: extract sorted values from lib
+        let idx = 0;
+        for (let g = 0; g < size && idx < n; g++) {
+            if (lib[g] !== EMPTY) {
+                array[idx] = lib[g];
+                updateBar(idx);
+                soundSwap(idx);
+                barElements[idx].classList.add("sorted");
+                idx++;
+                await sleep(getDelay());
+            }
+        }
+    }
+
+    // ---------- Stooge Sort ----------
+    async function stoogeSort(lo, hi) {
+        if (stopFlag) return;
+        if (lo >= hi) return;
+
+        barElements[lo].classList.add("comparing");
+        barElements[hi].classList.add("comparing");
+        comparisons++;
+        accesses += 2;
+        soundCompare(lo, hi);
+        updateStats();
+        await sleep(getDelay());
+
+        if (array[lo] > array[hi]) {
+            barElements[lo].classList.remove("comparing");
+            barElements[hi].classList.remove("comparing");
+            barElements[lo].classList.add("swapping");
+            barElements[hi].classList.add("swapping");
+            [array[lo], array[hi]] = [array[hi], array[lo]];
+            swaps++;
+            accesses += 4;
+            updateBar(lo);
+            updateBar(hi);
+            soundSwap(lo);
+            updateStats();
+            await sleep(getDelay());
+            barElements[lo].classList.remove("swapping");
+            barElements[hi].classList.remove("swapping");
+        } else {
+            barElements[lo].classList.remove("comparing");
+            barElements[hi].classList.remove("comparing");
+        }
+
+        if (hi - lo + 1 > 2) {
+            const t = Math.floor((hi - lo + 1) / 3);
+            await stoogeSort(lo, hi - t);       // first 2/3
+            await stoogeSort(lo + t, hi);       // last 2/3
+            await stoogeSort(lo, hi - t);       // first 2/3 again
+        }
+    }
+
+    // ---------- Bogo Sort ----------
+    async function bogoSort() {
+        const MAX_ATTEMPTS = 500000; // safety limit
+        let attempts = 0;
+
+        function isSorted() {
+            for (let i = 0; i < array.length - 1; i++) {
+                accesses += 2;
+                comparisons++;
+                if (array[i] > array[i + 1]) return false;
+            }
+            return true;
+        }
+
+        // Visualize the check
+        async function visualCheck() {
+            for (let i = 0; i < array.length - 1; i++) {
+                if (stopFlag) return false;
+                barElements[i].classList.add("comparing");
+                barElements[i + 1].classList.add("comparing");
+                soundCompare(i, i + 1);
+                await sleep(Math.min(getDelay(), 30));
+                const sorted = array[i] <= array[i + 1];
+                barElements[i].classList.remove("comparing");
+                barElements[i + 1].classList.remove("comparing");
+                if (!sorted) return false;
+            }
+            return true;
+        }
+
+        while (!stopFlag && attempts < MAX_ATTEMPTS) {
+            attempts++;
+            updateStats();
+
+            if (await visualCheck()) return;
+            if (stopFlag) return;
+
+            // Fisher-Yates shuffle with animation
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                if (i !== j) {
+                    barElements[i].classList.add("swapping");
+                    barElements[j].classList.add("swapping");
+                    [array[i], array[j]] = [array[j], array[i]];
+                    swaps++;
+                    accesses += 4;
+                    updateBar(i);
+                    updateBar(j);
+                    soundSwap(i);
+                    await sleep(Math.min(getDelay(), 15));
+                    barElements[i].classList.remove("swapping");
+                    barElements[j].classList.remove("swapping");
+                }
+            }
+            updateStats();
+        }
+    }
+
+    // ---------- Sleep Sort ----------
+    async function sleepSort() {
+        const n = array.length;
+        const maxVal = Math.max(...array);
+        const result = [];
+        let resolved = 0;
+
+        // Mark all bars as active
+        for (let i = 0; i < n; i++) barElements[i].classList.add("active");
+        await sleep(getDelay());
+
+        // Each element "sleeps" proportionally to its value, then "wakes up"
+        return new Promise((resolve) => {
+            const baseDelay = Math.max(20, getDelay() * 2);
+
+            for (let i = 0; i < n; i++) {
+                const val = array[i];
+                const sleepTime = (val / maxVal) * baseDelay * n;
+                accesses++;
+
+                setTimeout(() => {
+                    if (stopFlag) {
+                        resolved++;
+                        if (resolved === n) resolve();
+                        return;
+                    }
+                    result.push(val);
+                    const idx = result.length - 1;
+
+                    // Place value in sorted position
+                    array[idx] = val;
+                    updateBar(idx);
+                    barElements[idx].classList.remove("active", "comparing");
+                    barElements[idx].classList.add("sorted");
+                    soundSwap(idx);
+                    swaps++;
+                    updateStats();
+
+                    resolved++;
+                    if (resolved === n) resolve();
+                }, sleepTime);
+            }
+        });
+    }
+
     // ===== Algorithm Dispatcher =====
     const algorithms = {
         bubble:    bubbleSort,
@@ -1232,6 +1876,13 @@
         cycle:     cycleSort,
         radix:     radixSortLSD,
         bitonic:   bitonicSortWrapper,
+        tim:       timSort,
+        intro:     introSort,
+        flash:     flashSort,
+        library:   librarySort,
+        stooge:    () => stoogeSort(0, array.length - 1),
+        bogo:      bogoSort,
+        sleep:     sleepSort,
     };
 
     // ===== Event Handlers =====
