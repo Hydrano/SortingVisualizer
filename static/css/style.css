@@ -507,3 +507,28 @@ input[type="range"]::-moz-range-thumb {
 .bar.sorted-anim {
     animation: sortedPulse 0.4s ease;
 }
+
+/* ===== Footer ===== */
+.footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+}
+
+.footer p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.footer a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--transition);
+}
+
+.footer a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
